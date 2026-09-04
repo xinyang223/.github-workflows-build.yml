@@ -65,7 +65,7 @@ jobs:
       - name: Clone mtd-rw package source
         working-directory: immortalwrt
         run: |
-          git clone https://github.com/oscar-def/openwrt-mtd-rw.package.git package/kernel/mtd-rw
+          git clone --depth=1 https://github.com/oscar-def/openwrt-mtd-rw.package.git package/kernel/mtd-rw
 
       - name: Configure TL-7DR7299
         working-directory: immortalwrt

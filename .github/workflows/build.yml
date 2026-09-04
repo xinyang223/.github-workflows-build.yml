@@ -62,6 +62,11 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      - name: Clone mtd-rw package source
+        working-directory: immortalwrt
+        run: |
+          git clone https://github.com/oscar-def/openwrt-mtd-rw.package.git package/kernel/mtd-rw
+
       - name: Configure TL-7DR7299
         working-directory: immortalwrt
         run: |
@@ -87,7 +92,7 @@ jobs:
       - name: Compile kmod-mtd-rw
         working-directory: immortalwrt
         run: |
-          make package/kernel/mtd-rw/compile V=s -j2
+          make package/kernel/mtd-rw/compile V=s -j$(nproc)
 
       - name: Find generated package
         run: |

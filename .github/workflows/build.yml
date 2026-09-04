@@ -65,16 +65,23 @@ jobs:
 
           make defconfig
 
-      - name: Prepare Linux Kernel Environment
+      - name: Download sources
         working-directory: immortalwrt
         run: |
-          # 核心修复步骤：先编译内核依赖环境，生成 linux-6.6.94/.config
-          make target/linux/compile V=s -j$(nproc)
+          # 预先下载所有依赖包，防止网络原因中断
+          make download -j$(nproc)
 
-      - name: Compile kmod-mtd-rw
+      - name: Compile Tools and Toolchain
         working-directory: immortalwrt
         run: |
-          # 环境就绪后直接对 feeds 中的 mtd-rw 进行模块编译
+          # 核心修补：先构建主机工具和交叉编译器
+          make tools/install V=s -j$(nproc)
+          make toolchain/install V=s -j$(nproc)
+
+      - name: Compile kmod-mtd-rw Package
+        working-directory: immortalwrt
+        run: |
+          # 编译器和工具链就绪后，直接编译内核及 mtd-rw 模块
           make package/feeds/packages/mtd-rw/compile V=s -j$(nproc)
 
       - name: Find and Collect Generated IPK

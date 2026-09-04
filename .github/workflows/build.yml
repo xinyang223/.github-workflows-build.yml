@@ -39,7 +39,7 @@ jobs:
             curl \
             ca-certificates
 
-      - name: Clone ImmortalWrt
+      - name: Clone ImmortalWrt Source
         run: |
           git clone \
             --depth=1 \
@@ -47,30 +47,13 @@ jobs:
             https://github.com/padavanonly/immortalwrt-mt798x-6.6.git \
             immortalwrt
 
-      - name: Show source information
-        working-directory: immortalwrt
-        run: |
-          echo "===== SOURCE ====="
-          git log -1 --oneline
-          echo
-          echo "===== BRANCH ====="
-          git branch --show-current
-
-      - name: Update feeds
+      - name: Update and Install Feeds
         working-directory: immortalwrt
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Clone mtd-rw package source
-        working-directory: immortalwrt
-        run: |
-          # 使用 gh 命令行工具直接拉取官方可用的 mtd-rw 源码包
-          gh repo clone phrack/mtd-rw package/kernel/mtd-rw -- --depth=1
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure TL-7DR7299
+      - name: Configure for TL-7DR7299 and mtd-rw
         working-directory: immortalwrt
         run: |
           cat > .config <<'EOF'
@@ -80,49 +63,34 @@ jobs:
           CONFIG_PACKAGE_kmod-mtd-rw=m
           EOF
 
+          # 生成完整的编译配置
           make defconfig
-
-      - name: Show kernel configuration
-        working-directory: immortalwrt
-        run: |
-          echo "===== TARGET ====="
-          grep '^CONFIG_TARGET_' .config | grep -E 'mediatek|filogic|tl-7dr7299' || true
-
-          echo
-          echo "===== MTD-RW ====="
-          grep 'CONFIG_PACKAGE_kmod-mtd-rw' .config || true
 
       - name: Compile kmod-mtd-rw
         working-directory: immortalwrt
         run: |
-          make package/kernel/mtd-rw/compile V=s -j$(nproc)
+          # 针对包含 mtd-rw 的所有路径尝试编译
+          make package/kernel/mtd-rw/compile V=s -j$(nproc) || \
+          make package/feeds/packages/mtd-rw/compile V=s -j$(nproc) || \
+          make package/mtd-rw/compile V=s -j$(nproc) || \
+          make modules V=s -j$(nproc)
 
-      - name: Find generated package
+      - name: Find and Collect Generated IPK
         run: |
           mkdir -p output
 
+          # 在所有产物路径中搜寻编译出来的 kmod-mtd-rw IPK 包
           find immortalwrt/bin \
             -type f \
-            -name 'kmod-mtd-rw_*.ipk' \
+            -name '*mtd-rw*.ipk' \
             -exec cp -v {} output/ \;
 
-          echo
-          echo "===== GENERATED PACKAGE ====="
+          echo "===== GENERATED PACKAGES ====="
           ls -lah output/
 
-      - name: Check package kernel dependency
-        run: |
-          echo "===== IPK CONTROL ====="
-
-          for f in output/kmod-mtd-rw_*.ipk; do
-            echo
-            echo "FILE: $f"
-            ar p "$f" control.tar.zst | tar -xO ./control || true
-          done
-
-      - name: Upload IPK
+      - name: Upload IPK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TL-7DR7299-kmod-mtd-rw
-          path: output/kmod-mtd-rw_*.ipk
+          path: output/*mtd-rw*.ipk
           if-no-files-found: error

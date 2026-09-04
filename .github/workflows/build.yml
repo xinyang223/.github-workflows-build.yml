@@ -63,23 +63,24 @@ jobs:
           CONFIG_PACKAGE_kmod-mtd-rw=m
           EOF
 
-          # 生成完整的编译配置
           make defconfig
+
+      - name: Prepare Linux Kernel Environment
+        working-directory: immortalwrt
+        run: |
+          # 核心修复步骤：先编译内核依赖环境，生成 linux-6.6.94/.config
+          make target/linux/compile V=s -j$(nproc)
 
       - name: Compile kmod-mtd-rw
         working-directory: immortalwrt
         run: |
-          # 针对包含 mtd-rw 的所有路径尝试编译
-          make package/kernel/mtd-rw/compile V=s -j$(nproc) || \
-          make package/feeds/packages/mtd-rw/compile V=s -j$(nproc) || \
-          make package/mtd-rw/compile V=s -j$(nproc) || \
-          make modules V=s -j$(nproc)
+          # 环境就绪后直接对 feeds 中的 mtd-rw 进行模块编译
+          make package/feeds/packages/mtd-rw/compile V=s -j$(nproc)
 
       - name: Find and Collect Generated IPK
         run: |
           mkdir -p output
 
-          # 在所有产物路径中搜寻编译出来的 kmod-mtd-rw IPK 包
           find immortalwrt/bin \
             -type f \
             -name '*mtd-rw*.ipk' \
@@ -87,6 +88,16 @@ jobs:
 
           echo "===== GENERATED PACKAGES ====="
           ls -lah output/
+
+      - name: Check package kernel dependency
+        run: |
+          echo "===== IPK CONTROL ====="
+
+          for f in output/*mtd-rw*.ipk; do
+            echo
+            echo "FILE: $f"
+            ar p "$f" control.tar.zst | tar -xO ./control || true
+          done
 
       - name: Upload IPK Artifact
         uses: actions/upload-artifact@v4

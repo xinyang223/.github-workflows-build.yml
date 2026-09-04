@@ -62,54 +62,15 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Create mtd-rw package source
+      - name: Download mtd-rw package zip
         working-directory: immortalwrt
         run: |
-          mkdir -p package/kernel/mtd-rw/src
-          
-          # 直接从权威源下载 mtd-rw.c 驱动文件
-          curl -sSL https://raw.githubusercontent.com/phrack/mtd-rw/master/mtd-rw.c -o package/kernel/mtd-rw/src/mtd-rw.c
-          
-          # 创建标准的 OpenWrt 包 Makefile
-          cat > package/kernel/mtd-rw/Makefile <<'EOF'
-          include $(TOPDIR)/rules.mk
-          include $(INCLUDE_DIR)/kernel.mk
-
-          PKG_NAME:=mtd-rw
-          PKG_RELEASE:=1
-
-          include $(INCLUDE_DIR)/package.mk
-
-          define KernelPackage/mtd-rw
-            SUBMENU:=Other modules
-            TITLE:=Write-enable module for MTD partitions
-            FILES:=$(PKG_BUILD_DIR)/mtd-rw.ko
-            AUTOLOAD:=$(call AutoLoad,50,mtd-rw)
-          endef
-
-          define KernelPackage/mtd-rw/description
-            Driver to make MTD partitions writeable.
-          endef
-
-          define Build/Compile
-            $(MAKE) -C "$(LINUX_DIR)" \
-              KERNEL_DIR="$(LINUX_DIR)" \
-              ARCH="$(LINUX_KARCH)" \
-              CC="$(TARGET_CC)" \
-              M="$(PKG_BUILD_DIR)" \
-              modules
-          endef
-
-          define Build/Prepare
-            mkdir -p $(PKG_BUILD_DIR)
-            cp ./src/mtd-rw.c $(PKG_BUILD_DIR)/
-            cat > $(PKG_BUILD_DIR)/Makefile <<'MKEOF'
-          obj-m += mtd-rw.o
-          MKEOF
-          endef
-
-          $(eval $(call KernelPackage,mtd-rw))
-          EOF
+          mkdir -p package/kernel/mtd-rw
+          # 直接下载已测试通过的 OpenWrt mtd-rw 包源码并解压
+          curl -sSL https://github.com/agfwd/openwrt-mtd-rw/archive/refs/heads/master.zip -o /tmp/mtd-rw.zip
+          unzip -q /tmp/mtd-rw.zip -d /tmp/mtd-rw-src
+          cp -r /tmp/mtd-rw-src/openwrt-mtd-rw-master/* package/kernel/mtd-rw/
+          rm -rf /tmp/mtd-rw.zip /tmp/mtd-rw-src
 
       - name: Configure TL-7DR7299
         working-directory: immortalwrt

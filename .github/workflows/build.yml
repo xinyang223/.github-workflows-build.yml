@@ -62,10 +62,54 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Clone mtd-rw package source
+      - name: Create mtd-rw package source
         working-directory: immortalwrt
         run: |
-          git clone --depth=1 https://github.com/wqzqy/openwrt-mtd-rw.git package/kernel/mtd-rw
+          mkdir -p package/kernel/mtd-rw/src
+          
+          # 直接从权威源下载 mtd-rw.c 驱动文件
+          curl -sSL https://raw.githubusercontent.com/phrack/mtd-rw/master/mtd-rw.c -o package/kernel/mtd-rw/src/mtd-rw.c
+          
+          # 创建标准的 OpenWrt 包 Makefile
+          cat > package/kernel/mtd-rw/Makefile <<'EOF'
+          include $(TOPDIR)/rules.mk
+          include $(INCLUDE_DIR)/kernel.mk
+
+          PKG_NAME:=mtd-rw
+          PKG_RELEASE:=1
+
+          include $(INCLUDE_DIR)/package.mk
+
+          define KernelPackage/mtd-rw
+            SUBMENU:=Other modules
+            TITLE:=Write-enable module for MTD partitions
+            FILES:=$(PKG_BUILD_DIR)/mtd-rw.ko
+            AUTOLOAD:=$(call AutoLoad,50,mtd-rw)
+          endef
+
+          define KernelPackage/mtd-rw/description
+            Driver to make MTD partitions writeable.
+          endef
+
+          define Build/Compile
+            $(MAKE) -C "$(LINUX_DIR)" \
+              KERNEL_DIR="$(LINUX_DIR)" \
+              ARCH="$(LINUX_KARCH)" \
+              CC="$(TARGET_CC)" \
+              M="$(PKG_BUILD_DIR)" \
+              modules
+          endef
+
+          define Build/Prepare
+            mkdir -p $(PKG_BUILD_DIR)
+            cp ./src/mtd-rw.c $(PKG_BUILD_DIR)/
+            cat > $(PKG_BUILD_DIR)/Makefile <<'MKEOF'
+          obj-m += mtd-rw.o
+          MKEOF
+          endef
+
+          $(eval $(call KernelPackage,mtd-rw))
+          EOF
 
       - name: Configure TL-7DR7299
         working-directory: immortalwrt

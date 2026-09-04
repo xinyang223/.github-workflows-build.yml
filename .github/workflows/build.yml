@@ -62,15 +62,13 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Download mtd-rw package zip
+      - name: Clone mtd-rw package source
         working-directory: immortalwrt
         run: |
-          mkdir -p package/kernel/mtd-rw
-          # 直接下载已测试通过的 OpenWrt mtd-rw 包源码并解压
-          curl -sSL https://github.com/agfwd/openwrt-mtd-rw/archive/refs/heads/master.zip -o /tmp/mtd-rw.zip
-          unzip -q /tmp/mtd-rw.zip -d /tmp/mtd-rw-src
-          cp -r /tmp/mtd-rw-src/openwrt-mtd-rw-master/* package/kernel/mtd-rw/
-          rm -rf /tmp/mtd-rw.zip /tmp/mtd-rw-src
+          # 使用 gh 命令行工具直接拉取官方可用的 mtd-rw 源码包
+          gh repo clone phrack/mtd-rw package/kernel/mtd-rw -- --depth=1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure TL-7DR7299
         working-directory: immortalwrt
